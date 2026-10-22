@@ -1,0 +1,7 @@
+[Unit]
+Description=Bahamut XI game servers
+Wants=bahamut-world.service bahamut-connect.service bahamut-search.service bahamut-map.service bahamut-profile.service
+After=mariadb.service
+
+[Install]
+WantedBy=multi-user.target

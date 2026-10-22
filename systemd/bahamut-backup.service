@@ -1,0 +1,6 @@
+[Unit]
+Description=Bahamut XI nightly database backup
+
+[Service]
+Type=oneshot
+ExecStart=@REPO@/bin/bahamut backup

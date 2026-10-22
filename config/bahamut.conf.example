@@ -1,0 +1,42 @@
+# Bahamut XI server configuration.
+#
+# `sudo bin/bahamut install` copies this file to /etc/bahamut/bahamut.conf the
+# first time it runs. Edit that copy, not this one. Database passwords are not
+# set here; the installer generates them and keeps them in /etc/bahamut/*.env.
+
+# Public hostname of the website (and of the game server, since both run on
+# this machine). Used for nginx, the TLS certificate and launcher links.
+BAHAMUT_DOMAIN="bahamut-xi.com"
+
+# E-mail address Let's Encrypt sends certificate expiry notices to.
+# Leave empty to skip HTTPS setup (for example on a LAN test box).
+BAHAMUT_ACME_EMAIL=""
+
+# Where everything is installed.
+BAHAMUT_ROOT="/opt/bahamut"
+
+# System user the game servers and the website run as.
+BAHAMUT_USER="bahamut"
+
+# Phoenix server fork (LandSandBoat downstream) and the commit Bahamut XI is
+# tested against. `bahamut update` moves to this commit; change it to upgrade.
+PHOENIX_REPO="https://github.com/phoenixffxi/Phoenix"
+PHOENIX_REF="21dff3a01128c1905fd794ae667429beeae30cb4"
+
+# Website repository and branch.
+WEB_REPO="https://github.com/ricardo-monreal/bahamut-xi-web"
+WEB_REF="main"
+
+# Separate file server that hosts the launcher patches, addons and Pivot
+# packs (see docs/file-server.md). The website links to its downloads.
+BAHAMUT_FILES_URL="https://files.bahamut-xi.com"
+
+# Databases.
+DB_NAME="xidb"
+WEB_DB_NAME="bahamut_web"
+
+# Port the website (Next.js) listens on behind nginx.
+WEB_PORT="3000"
+
+# Nightly database backups: how many days to keep.
+BACKUP_KEEP_DAYS="14"
