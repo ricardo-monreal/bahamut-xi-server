@@ -244,10 +244,15 @@ setup_python() {
 build_server() {
   step "Building the game servers (this takes a while the first time)"
   install -d -o "$BAHAMUT_USER" -g "$BAHAMUT_USER" "$BUILD_DIR"
-  as_user env CC=gcc-15 CXX=g++-15 CCACHE_DIR="$BAHAMUT_ROOT/.ccache" \
+  # Codegen runs Python scripts that need tools/requirements.txt (jinja2, jsonschema,
+  # ruamel.yaml). Those live in our venv, so point CMake (and anything it runs) at it.
+  [[ -x "$VENV/bin/python" ]] || setup_python
+  local venv_path="$VENV/bin:$PATH"
+  as_user env PATH="$venv_path" VIRTUAL_ENV="$VENV" CC=gcc-15 CXX=g++-15 CCACHE_DIR="$BAHAMUT_ROOT/.ccache" \
     cmake -G Ninja -S "$SERVER_DIR" -B "$BUILD_DIR" \
+      -DPython_EXECUTABLE="$VENV/bin/python" -DPython3_EXECUTABLE="$VENV/bin/python" \
       -DCMAKE_BUILD_TYPE=Release -DPCH_ENABLE=ON -DTRACY_ENABLE=OFF -DWARNINGS_AS_ERRORS=FALSE
-  as_user env CCACHE_DIR="$BAHAMUT_ROOT/.ccache" cmake --build "$BUILD_DIR" -j"$(nproc)"
+  as_user env PATH="$venv_path" VIRTUAL_ENV="$VENV" CCACHE_DIR="$BAHAMUT_ROOT/.ccache" cmake --build "$BUILD_DIR" -j"$(nproc)"
   local exe
   for exe in xi_connect xi_map xi_search xi_world xi_profile; do
     [[ -x "$SERVER_DIR/$exe" ]] || die "build finished but $SERVER_DIR/$exe is missing"
