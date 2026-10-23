@@ -507,7 +507,7 @@ main() {
     apply) need_root apply; load_conf; apply_overlay; ok "restart with: sudo bahamut restart game" ;;
     build) need_root build; load_conf; apply_phoenix_patches; build_server ;;
     db-update) need_root db-update; load_conf; setup_database ;;
-    start|stop|restart) need_root "$cmd"; load_conf; read -ra units <<<"$(units_for "${1:-all}")"; systemctl "$cmd" "${units[@]}" ;;
+    start|stop|restart) need_root "$cmd"; load_conf; read -ra units <<<"$(units_for "${1:-all}")"; [[ "$cmd" == stop ]] || systemctl reset-failed "${units[@]}" 2>/dev/null || true; systemctl "$cmd" "${units[@]}" ;;
     status) cmd_status ;;
     logs) cmd_logs "$@" ;;
     backup) cmd_backup ;;
