@@ -458,15 +458,28 @@ units_for() {
 
 cmd_status() {
   load_conf
-  local u state
+  local u state failed=()
   for u in "${GAME_UNITS[@]}" "${WEB_UNITS[@]}"; do
     state="$(systemctl is-active "$u" 2>/dev/null)" || true
     printf '  %-18s %s\n' "$u" "${state:-unknown}"
+    [[ "$state" == failed || "$state" == activating ]] && failed+=("$u")
   done
   local online
   online="$(curl -fsS --max-time 2 http://127.0.0.1:8088/api/sessions 2>/dev/null || echo '?')"
   echo "  players online:    $online"
-  echo "  phoenix commit:    $(git -C "$SERVER_DIR" rev-parse --short HEAD 2>/dev/null || echo 'not installed')"
+  # The checkout belongs to the service user; tell git that's fine when another user asks.
+  echo "  phoenix commit:    $(git -c safe.directory='*' -C "$SERVER_DIR" rev-parse --short HEAD 2>/dev/null || echo 'not installed')"
+  if ((${#failed[@]})); then
+    echo
+    if [[ $EUID -eq 0 ]]; then
+      for u in "${failed[@]}"; do
+        echo "  --- last log lines of $u ---"
+        journalctl -u "$u" -n 15 --no-pager -o cat 2>/dev/null | sed 's/^/  /'
+      done
+    else
+      echo "  Run 'sudo bahamut status' to see why ${failed[*]} failed (or: sudo journalctl -u ${failed[0]} -n 50)."
+    fi
+  fi
 }
 
 cmd_logs() {
