@@ -104,6 +104,7 @@ sudo bahamut web-update
 | 54230 | UDP | Map server (gameplay) |
 | 54002 | TCP | Search (`/sea`, auction house lists) |
 | 51220 | TCP | Profile server |
+| 51240 | TCP | Profile server (PlayOnline IRC) |
 | 3306, 8088, 3000 | TCP | MariaDB, world HTTP API, website: **localhost only** |
 
 `bahamut install` opens exactly these with `ufw` (plus SSH). If the machine is behind a router or cloud firewall, forward/open the same ports there.

@@ -390,8 +390,9 @@ setup_firewall() {
   ufw allow 54001/tcp >/dev/null
   ufw allow 54002/tcp >/dev/null
   ufw allow 51220/tcp >/dev/null
+  ufw allow 51240/tcp >/dev/null
   ufw --force enable >/dev/null
-  ok "ufw: ssh, http/https, 54001, 54002, 54230 tcp+udp, 54231, 51220"
+  ok "ufw: ssh, http/https, 54001, 54002, 54230 tcp+udp, 54231, 51220, 51240"
 }
 
 setup_nginx() {
