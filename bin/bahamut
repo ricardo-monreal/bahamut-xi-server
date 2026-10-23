@@ -306,8 +306,11 @@ setup_database() {
   local count
   count="$(mysql_root -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME'")"
   if [[ "$count" == "0" ]]; then
-    # dbtool "setup" also runs CREATE DATABASE, which already exists; it then imports everything.
-    dbtool setup "$DB_NAME" || true
+    # dbtool "setup" runs CREATE DATABASE itself and stops if the database exists, so drop the
+    # empty one made by setup_mariadb. bahamut_game holds ALL on this database name, which lets
+    # it create it again; the website user's database-level grant survives the drop.
+    mysql_root -e "DROP DATABASE IF EXISTS \`$DB_NAME\`"
+    dbtool setup "$DB_NAME"
     count="$(mysql_root -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME'")"
     [[ "$count" != "0" ]] || die "dbtool setup did not create any tables"
   else
