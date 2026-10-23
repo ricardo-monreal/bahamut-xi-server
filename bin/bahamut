@@ -12,6 +12,7 @@
 #   sudo bin/bahamut build          Rebuild the game servers only
 #   sudo bin/bahamut db-update      Apply new SQL and migrations (dbtool update)
 #   sudo bin/bahamut gm <account> <level>   Give every character on an account a GM level (0-5)
+#   sudo bin/bahamut zone-ip [address|auto]  Show or set the address game clients connect to
 #
 # Configuration: /etc/bahamut/bahamut.conf (from config/bahamut.conf.example).
 
@@ -317,7 +318,52 @@ setup_database() {
     dbtool update
   fi
   grant_web_access
+  apply_zone_ip
   ok "$DB_NAME ($count tables)"
+}
+
+# The address the login and map servers hand to game clients (zone_settings.zoneip). It ships
+# as 127.0.0.1, which only works for a client on this machine, and dbtool update can reset it,
+# so it is re-applied after every database step. BAHAMUT_ZONE_IP in bahamut.conf, or this
+# server's main LAN address when unset.
+detect_ip() { ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -1; }
+valid_ipv4() { [[ "$1" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]] && ((BASH_REMATCH[1] < 256 && BASH_REMATCH[2] < 256 && BASH_REMATCH[3] < 256 && BASH_REMATCH[4] < 256)); }
+
+apply_zone_ip() {
+  local ip="${BAHAMUT_ZONE_IP:-}"
+  [[ -n "$ip" ]] || ip="$(detect_ip)"
+  valid_ipv4 "$ip" || { warn "could not work out the zone IP; set it with: sudo bahamut zone-ip <address>"; return 0; }
+  # Rows with an empty zoneip are disabled zones; leave them disabled.
+  mysql_root "$DB_NAME" -e "UPDATE zone_settings SET zoneip = '$ip' WHERE zoneip <> ''"
+  ok "zone IP $ip${BAHAMUT_ZONE_IP:+ (from bahamut.conf)}"
+}
+
+cmd_zone_ip() {
+  need_root zone-ip
+  load_conf
+  local ip="${1:-}"
+  if [[ -z "$ip" ]]; then
+    echo "  configured: ${BAHAMUT_ZONE_IP:-(auto: $(detect_ip))}"
+    echo "  in use:     $(mysql_root -N "$DB_NAME" -e "SELECT GROUP_CONCAT(DISTINCT zoneip) FROM zone_settings WHERE zoneip <> ''")"
+    echo "  change it:  sudo bahamut zone-ip <address>   (or 'auto')"
+    return 0
+  fi
+  if [[ "$ip" == auto ]]; then
+    sed -i '/^BAHAMUT_ZONE_IP=/d' "$CONF"
+    BAHAMUT_ZONE_IP=""
+  else
+    valid_ipv4 "$ip" || die "'$ip' is not an IPv4 address"
+    if grep -q '^BAHAMUT_ZONE_IP=' "$CONF"; then
+      sed -i "s/^BAHAMUT_ZONE_IP=.*/BAHAMUT_ZONE_IP=\"$ip\"/" "$CONF"
+    else
+      printf '\nBAHAMUT_ZONE_IP="%s"\n' "$ip" >> "$CONF"
+    fi
+    BAHAMUT_ZONE_IP="$ip"
+  fi
+  apply_zone_ip
+  systemctl reset-failed "${GAME_UNITS[@]}" 2>/dev/null || true
+  systemctl restart bahamut-game.target
+  ok "game servers restarted"
 }
 
 install_units() {
@@ -512,7 +558,8 @@ main() {
     logs) cmd_logs "$@" ;;
     backup) cmd_backup ;;
     gm) cmd_gm "$@" ;;
-    help|-h|--help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' ;;
+    zone-ip) cmd_zone_ip "$@" ;;
+    help|-h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command '$cmd' (see: bahamut help)" ;;
   esac
 }

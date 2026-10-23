@@ -31,6 +31,11 @@ WEB_REF="main"
 # packs (see docs/file-server.md). The website links to its downloads.
 BAHAMUT_FILES_URL="https://files.bahamut-xi.com"
 
+# Address game clients connect to after login (written into zone_settings).
+# Empty = this server's main LAN address. Set it to the public IP when players
+# connect from the internet (and forward the game ports to this machine).
+BAHAMUT_ZONE_IP=""
+
 # Databases.
 DB_NAME="xidb"
 WEB_DB_NAME="bahamut_web"
