@@ -233,6 +233,34 @@ apply_overlay() {
   ok "settings copied into $SERVER_DIR/settings"
 }
 
+# Phoenix keeps core source changes its modules depend on in modules/temp_patch/*.patch
+# (e.g. phoenix-fishing.patch adds the fishingutils hooks used by modules/phoenix/cpp/fishing_*.cpp).
+# They are not committed to the source tree, so apply them before building. fetch_phoenix resets
+# tracked files on every run, so this always starts from clean source.
+apply_phoenix_patches() {
+  step "Phoenix source patches"
+  local dir="$SERVER_DIR/modules/temp_patch" p name
+  shopt -s nullglob
+  local patches=("$dir"/*.patch)
+  shopt -u nullglob
+  if (( ${#patches[@]} == 0 )); then
+    ok "none to apply"
+    return 0
+  fi
+  for p in "${patches[@]}"; do
+    name="$(basename "$p")"
+    if as_user git -C "$SERVER_DIR" apply --check "$p" 2>/dev/null; then
+      as_user git -C "$SERVER_DIR" apply "$p"
+      ok "applied $name"
+    elif as_user git -C "$SERVER_DIR" apply -R --check "$p" 2>/dev/null; then
+      ok "$name is already applied"
+    else
+      # Upstream has since merged or rewritten these changes; the build shows if anything still needs it.
+      warn "$name doesn't apply to this Phoenix commit (already merged upstream or out of date); skipped"
+    fi
+  done
+}
+
 setup_python() {
   step "Python tools (dbtool)"
   [[ -x "$VENV/bin/python" ]] || as_user python3 -m venv "$VENV"
@@ -367,6 +395,7 @@ cmd_install() {
   setup_mariadb
   fetch_phoenix
   apply_overlay
+  apply_phoenix_patches
   setup_python
   build_server
   setup_database
@@ -389,6 +418,7 @@ cmd_update() {
   load_conf
   fetch_phoenix
   apply_overlay
+  apply_phoenix_patches
   setup_python
   build_server
   systemctl stop bahamut-game.target
@@ -459,7 +489,7 @@ main() {
     update) cmd_update "$@" ;;
     web-update|web-deploy) need_root web-update; load_conf; web_deploy ;;
     apply) need_root apply; load_conf; apply_overlay; ok "restart with: sudo bahamut restart game" ;;
-    build) need_root build; load_conf; build_server ;;
+    build) need_root build; load_conf; apply_phoenix_patches; build_server ;;
     db-update) need_root db-update; load_conf; setup_database ;;
     start|stop|restart) need_root "$cmd"; load_conf; read -ra units <<<"$(units_for "${1:-all}")"; systemctl "$cmd" "${units[@]}" ;;
     status) cmd_status ;;
