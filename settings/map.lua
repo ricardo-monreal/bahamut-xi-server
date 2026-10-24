@@ -27,4 +27,10 @@ xi.settings.map =
     -- Double the chance a synthesis raises crafting skill: 60% -> 100% below skill 50,
     -- 25% -> 50% from 50 up (halved when the synth breaks, as normal).
     CRAFT_CHANCE_MULTIPLIER = 2.0,
+
+    -- Faster combat and magic skill-ups (automaton skills too). The server adds this many
+    -- times the normal gain on top of it, so 2 makes each skill-up about 3x as large
+    -- (0.1 -> 0.3) and raises the most one skill-up can give from 0.5 to 0.9.
+    -- Must be a whole number; 1 = retail.
+    SKILLUP_AMOUNT_MULTIPLIER = 2,
 }
