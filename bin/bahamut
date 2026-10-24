@@ -204,8 +204,22 @@ grant_web_access() {
   mysql_root -e "FLUSH PRIVILEGES;"
 }
 
+# GIT_MIRROR redirects every https://github.com/ URL, system-wide, to the mirror. Clearing the
+# setting removes the redirect again.
+configure_git_mirror() {
+  local key
+  while read -r key; do
+    [[ -n "$key" ]] && git config --system --unset-all "$key" || true
+  done < <(git config --system --name-only --get-regexp '^url\..*\.insteadof$' '^https://github.com/$' 2>/dev/null || true)
+  if [[ -n "${GIT_MIRROR:-}" ]]; then
+    git config --system --add "url.${GIT_MIRROR%/}/github.com/.insteadOf" "https://github.com/"
+    ok "GitHub URLs go to ${GIT_MIRROR%/}/github.com/"
+  fi
+}
+
 fetch_phoenix() {
   step "Phoenix server source ($PHOENIX_REF)"
+  configure_git_mirror
   if [[ ! -d "$SERVER_DIR/.git" ]]; then
     as_user git clone --filter=blob:none "$PHOENIX_REPO" "$SERVER_DIR"
   fi
@@ -275,16 +289,19 @@ setup_python() {
 
 build_server() {
   step "Building the game servers (this takes a while the first time)"
-  install -d -o "$BAHAMUT_USER" -g "$BAHAMUT_USER" "$BUILD_DIR"
+  install -d -o "$BAHAMUT_USER" -g "$BAHAMUT_USER" "$BUILD_DIR" "$BAHAMUT_ROOT/cache" "$BAHAMUT_ROOT/cache/cpm"
+  # Libraries Phoenix's build downloads (CPM) are kept here for good, so later builds,
+  # including after "bahamut update", work offline once they have been fetched.
+  local cpm_cache="$BAHAMUT_ROOT/cache/cpm"
   # Codegen runs Python scripts that need tools/requirements.txt (jinja2, jsonschema,
   # ruamel.yaml). Those live in our venv, so point CMake (and anything it runs) at it.
   [[ -x "$VENV/bin/python" ]] || setup_python
   local venv_path="$VENV/bin:$PATH"
-  as_user env PATH="$venv_path" VIRTUAL_ENV="$VENV" CC=gcc-15 CXX=g++-15 CCACHE_DIR="$BAHAMUT_ROOT/.ccache" \
+  as_user env PATH="$venv_path" VIRTUAL_ENV="$VENV" CC=gcc-15 CXX=g++-15 CCACHE_DIR="$BAHAMUT_ROOT/.ccache" CPM_SOURCE_CACHE="$cpm_cache" \
     cmake -G Ninja -S "$SERVER_DIR" -B "$BUILD_DIR" \
       -DPython_EXECUTABLE="$VENV/bin/python" -DPython3_EXECUTABLE="$VENV/bin/python" \
       -DCMAKE_BUILD_TYPE=Release -DPCH_ENABLE=ON -DTRACY_ENABLE=OFF -DWARNINGS_AS_ERRORS=FALSE
-  as_user env PATH="$venv_path" VIRTUAL_ENV="$VENV" CCACHE_DIR="$BAHAMUT_ROOT/.ccache" cmake --build "$BUILD_DIR" -j"$(nproc)"
+  as_user env PATH="$venv_path" VIRTUAL_ENV="$VENV" CCACHE_DIR="$BAHAMUT_ROOT/.ccache" CPM_SOURCE_CACHE="$cpm_cache" cmake --build "$BUILD_DIR" -j"$(nproc)"
   local exe
   for exe in xi_connect xi_map xi_search xi_world xi_profile; do
     [[ -x "$SERVER_DIR/$exe" ]] || die "build finished but $SERVER_DIR/$exe is missing"
@@ -417,6 +434,7 @@ setup_nginx() {
 
 web_deploy() {
   step "Website ($WEB_REF)"
+  configure_git_mirror
   if [[ ! -d "$WEB_DIR/.git" ]]; then
     as_user git clone "$WEB_REPO" "$WEB_DIR"
   fi

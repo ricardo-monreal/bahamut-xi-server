@@ -115,6 +115,10 @@ Bahamut XI matches the content of the Phoenix Era-DATs: the original game, Rise 
 
 Bahamut XI is meant to be played solo or in a small group: trusts are on, up to five at once and allowed everywhere (`modules/bahamut/lua/solo_trusts.lua`), and EXP and skill-up rates are raised (`settings/main.lua`, `settings/map.lua`).
 
+## Without GitHub
+
+Bahamut XI can be installed, updated and built entirely from your own machines: a Git mirror on the file server (`tools/git-mirror.sh`), `GIT_MIRROR` in `bahamut.conf`, local launcher and xiloader builds, and the Linux runtime hosted on the file server. See [docs/without-github.md](docs/without-github.md).
+
 ## License
 
 The scripts and settings in this repository are released under the GNU GPL v3, the same license as LandSandBoat and Phoenix.

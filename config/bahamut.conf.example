@@ -23,6 +23,12 @@ BAHAMUT_USER="bahamut"
 PHOENIX_REPO="https://github.com/phoenixffxi/Phoenix"
 PHOENIX_REF="21dff3a01128c1905fd794ae667429beeae30cb4"
 
+# Optional Git mirror (tools/git-mirror.sh on the file server), e.g. "http://10.2.5.170/git".
+# When set, every https://github.com/... clone and fetch on this machine (Phoenix, its
+# submodules, the website, and the libraries Phoenix downloads while building) goes to the
+# mirror instead, so installs, updates and builds work without GitHub. Empty = use GitHub.
+GIT_MIRROR=""
+
 # Website repository and branch.
 WEB_REPO="https://github.com/ricardo-monreal/bahamut-xi-web"
 WEB_REF="main"
