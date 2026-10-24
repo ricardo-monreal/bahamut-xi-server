@@ -222,13 +222,16 @@ apply_overlay() {
   for f in "$REPO_DIR"/settings/*.lua; do
     install -o "$BAHAMUT_USER" -g "$BAHAMUT_USER" -m 0644 "$f" "$SERVER_DIR/settings/$(basename "$f")"
   done
-  if [[ -f "$REPO_DIR/modules/init.txt" ]]; then
-    install -o "$BAHAMUT_USER" -g "$BAHAMUT_USER" -m 0644 "$REPO_DIR/modules/init.txt" "$SERVER_DIR/modules/init.txt"
-  fi
+  # Our own modules live in this repo's modules/bahamut and are copied in whole. Phoenix's
+  # modules/init.txt is kept as Phoenix ships it (so updates bring its new modules) and gets one
+  # line, "bahamut", added at the end so our overrides load after Phoenix's.
   if [[ -d "$REPO_DIR/modules/bahamut" ]]; then
     rm -rf "$SERVER_DIR/modules/bahamut"
     cp -r "$REPO_DIR/modules/bahamut" "$SERVER_DIR/modules/bahamut"
     chown -R "$BAHAMUT_USER:$BAHAMUT_USER" "$SERVER_DIR/modules/bahamut"
+    if ! grep -qxE 'bahamut/?' "$SERVER_DIR/modules/init.txt"; then
+      printf '\n# Bahamut XI modules (added by bin/bahamut)\nbahamut\n' >> "$SERVER_DIR/modules/init.txt"
+    fi
   fi
   install -d -o "$BAHAMUT_USER" -g "$BAHAMUT_USER" "$SERVER_DIR/log"
   ok "settings copied into $SERVER_DIR/settings"
