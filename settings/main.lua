@@ -58,8 +58,9 @@ xi.settings.main =
     INITIAL_LEVEL_CAP = 50,
     MAX_LEVEL         = 75,
 
-    -- Retail-era rates.
-    EXP_RATE  = 1.000,
+    -- Rates. EXP from kills is map.lua's EXP_RATE; this one covers EXP given by scripts
+    -- (quest rewards, EXP scrolls). Keep the two equal.
+    EXP_RATE  = 2.000,
     START_GIL = 10,
     ALL_MAPS  = 0,
 }
