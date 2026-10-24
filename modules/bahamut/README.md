@@ -14,8 +14,8 @@ Phoenix's own modules.
 A Lua module overrides a function from Phoenix's `scripts/` and calls `super(...)` to keep the
 original behaviour. `lua/welcome.lua` is a small working example; `lua/solo_trusts.lua`
 (5 trusts, allowed everywhere, starter party on login) is a larger one with options at the top.
-`lua/trust_shop.lua` adds the player command `!trustshop`: 35 more trusts in tiers that open at
-job level 20, 30, 40, 50, 60, 70 and 75, bought with conquest points. Phoenix's own modules
+`lua/trust_shop.lua` adds the Trust Liaison NPC in Lower Jeuno: 35 more trusts in tiers that open
+at job level 20, 30, 40, 50, 60, 70 and 75, bought with conquest points through menus. Phoenix's own modules
 (`/opt/bahamut/server/modules/custom`, `phoenix`, `era`) are good references.
 
 Plain rates and switches (EXP rate, trusts, level cap...) are settings, not modules: change them

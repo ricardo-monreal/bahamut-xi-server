@@ -1,18 +1,17 @@
 -----------------------------------
--- Bahamut XI: trust shop
+-- Bahamut XI: Trust Liaison (trust shop NPC in Lower Jeuno)
 -----------------------------------
 -- Opens up trusts this 75-era server can't otherwise give (their quests and ciphers belong to
--- content that is turned off). Trusts unlock in tiers by the player's highest job level and
--- are bought with conquest points through a chat command:
---
---   !trustshop          list every tier, its price and what you own
---   !trustshop <n>      show trust number n; send it again within 30 seconds to buy it
+-- content that is turned off). Talk to the Trust Liaison in Lower Jeuno: trusts unlock in tiers
+-- by the player's highest job level and are bought with conquest points through menus.
 --
 -- Conquest points are the player's own nation's points (the ones shown in the conquest menu).
--- Edit the tiers below, then: sudo bahamut apply && sudo bahamut restart game
+-- Edit the tiers or the NPC below, then: sudo bahamut apply && sudo bahamut restart game
 -----------------------------------
 require('modules/module_utils')
+require('scripts/zones/Lower_Jeuno/Zone')
 -----------------------------------
+local m = Module:new('bahamut_trust_shop')
 
 -- Each tier: the job level needed, the price in conquest points, and five trusts as
 -- { name in xi.magic.spell (scripts/enum/magic.lua), name shown to players }.
@@ -46,41 +45,49 @@ local tiers =
     {
         level = 75, cost = 5000,
         trusts = { -- the Ark Angels
-            { 'AAHM', 'Ark Angel HM' }, { 'AAEV', 'Ark Angel EV' }, { 'AAMR', 'Ark Angel MR' }, { 'AATT', 'Ark Angel TT' }, { 'AAGK', 'Ark Angel GK' } },
+            { 'AAHM', 'Ark Angel HM' }, { 'AAEV', 'Ark Angel EV' }, { 'AAMR', 'Ark Angel MR' }, { 'AATT', 'Ark Angel TT' }, { 'AAGK', 'Ark Angel GK' },
+        },
     },
 }
 
-local confirmSeconds = 30
-local channel        = xi.msg.channel.SYSTEM_3
+-- The NPC. Placed in the open square where retail later put Lower Jeuno's waypoint, and
+-- dressed like Wetata, the Trust program's cipher reader in Windurst Woods.
+local npcSettings =
+{
+    name     = 'Trust Liaison',
+    look     = '0x01000306461118205230B8408550006000700000',
+    x        = -33.000,
+    y        = 0.000,
+    z        = -29.000,
+    rotation = 18,
+}
 
--- Flat, numbered list built on first use, so xi.magic.spell is certainly loaded.
-local entries = nil
+local maxDistance = 6    -- yalms; menu choices only count while the player stands at the NPC
+local perPage     = 5    -- tiers per menu page (the client shows up to 7 options)
+local channel     = xi.msg.channel.NS_SAY
 
-local function getEntries()
-    if entries then
-        return entries
+-- Resolved on first use, so xi.magic.spell is certainly loaded.
+local resolved = false
+
+local function resolveTiers()
+    if resolved then
+        return
     end
 
-    entries = {}
+    resolved = true
     for tierIndex, tier in ipairs(tiers) do
+        local list = {}
         for _, trust in ipairs(tier.trusts) do
-            local key     = trust[1]
-            local spellId = xi.magic.spell[key]
+            local spellId = xi.magic.spell[trust[1]]
             if spellId then
-                table.insert(entries, {
-                    spellId = spellId,
-                    name    = trust[2],
-                    tier    = tierIndex,
-                    level   = tier.level,
-                    cost    = tier.cost,
-                })
+                table.insert(list, { spellId = spellId, name = trust[2] })
             else
-                print(string.format('[bahamut_trust_shop] unknown trust %s in tier %d; skipped', key, tierIndex))
+                print(string.format('[bahamut_trust_shop] unknown trust %s in tier %d; skipped', trust[1], tierIndex))
             end
         end
-    end
 
-    return entries
+        tier.resolved = list
+    end
 end
 
 -- Highest level on any job, so changing jobs never locks a player out of a tier.
@@ -96,125 +103,164 @@ local function highestJobLevel(player)
     return best
 end
 
-local function say(player, text)
-    player:printToPlayer(text, channel, '')
-end
-
 local function formatNumber(n)
-    local s = tostring(n)
-    local result = s:reverse():gsub('(%d%d%d)', '%1,'):reverse()
-    return (result:gsub('^,', ''))
+    local s = tostring(n):reverse():gsub('(%d%d%d)', '%1,'):reverse()
+    return (s:gsub('^,', ''))
 end
 
-local function listShop(player)
-    local level = highestJobLevel(player)
-    say(player, string.format('Trust shop: %s conquest points, highest job level %d.', formatNumber(player:getCP()), level))
+local function say(player, npc, text)
+    player:printToPlayer(text, channel, npc:getPacketName())
+end
 
-    -- Open tiers and the next locked one in full; later tiers as one line, to keep chat short.
-    local shownLocked = nil
-    local laterLevels = {}
-    local currentTier = nil
-    for index, entry in ipairs(getEntries()) do
-        local locked = level < entry.level
-        if locked and shownLocked == nil then
-            shownLocked = entry.tier
-        end
+-- New menus must wait a moment for the previous one to close.
+local function showMenu(player, menu)
+    player:timer(50, function(playerArg)
+        playerArg:customMenu(menu)
+    end)
+end
 
-        if locked and entry.tier ~= shownLocked then
-            if entry.tier ~= currentTier then
-                currentTier = entry.tier
-                table.insert(laterLevels, tostring(entry.level))
-            end
+local function nearNpc(player, npc)
+    return player:getZoneID() == xi.zone.LOWER_JEUNO and player:checkDistance(npc) <= maxDistance
+end
+
+local showTiers, showTier
+
+local function buy(player, npc, tier, trust)
+    if not nearNpc(player, npc) then
+        return
+    end
+
+    if player:hasSpell(trust.spellId) then
+        say(player, npc, string.format('You already know %s.', trust.name))
+        return
+    end
+
+    if highestJobLevel(player) < tier.level then
+        say(player, npc, string.format('%s needs a job at level %d.', trust.name, tier.level))
+        return
+    end
+
+    if player:getCP() < tier.cost then
+        say(player, npc, string.format('%s costs %s conquest points. You have %s.', trust.name, formatNumber(tier.cost), formatNumber(player:getCP())))
+        return
+    end
+
+    player:delCP(tier.cost)
+    player:addSpell(trust.spellId, { silentLog = true })
+    say(player, npc, string.format('You learned Trust: %s. %s conquest points left.', trust.name, formatNumber(player:getCP())))
+end
+
+local function confirm(player, npc, tierIndex, trust)
+    local tier = tiers[tierIndex]
+    showMenu(player, {
+        title   = string.format('%s for %s conquest points?', trust.name, formatNumber(tier.cost)),
+        options =
+        {
+            { 'Buy', function(playerArg) buy(playerArg, npc, tier, trust) end },
+            { 'Back', function(playerArg) showTier(playerArg, npc, tierIndex) end },
+        },
+    })
+end
+
+showTier = function(player, npc, tierIndex)
+    local tier    = tiers[tierIndex]
+    local options = {}
+
+    for _, trust in ipairs(tier.resolved) do
+        if player:hasSpell(trust.spellId) then
+            table.insert(options, {
+                trust.name .. ' (owned)',
+                function(playerArg)
+                    say(playerArg, npc, string.format('You already know %s.', trust.name))
+                    showTier(playerArg, npc, tierIndex)
+                end,
+            })
         else
-            if entry.tier ~= currentTier then
-                currentTier = entry.tier
-                say(player, string.format('-- Level %d, %s CP each (%s) --', entry.level, formatNumber(entry.cost), locked and 'locked' or 'open'))
-            end
-
-            local mark
-            if player:hasSpell(entry.spellId) then
-                mark = 'owned'
-            elseif locked then
-                mark = 'locked'
-            else
-                mark = 'available'
-            end
-
-            say(player, string.format('%2d. %s  [%s]', index, entry.name, mark))
+            table.insert(options, {
+                trust.name,
+                function(playerArg) confirm(playerArg, npc, tierIndex, trust) end,
+            })
         end
     end
 
-    if #laterLevels > 0 then
-        say(player, string.format('More trusts unlock at level %s.', table.concat(laterLevels, ', ')))
-    end
+    table.insert(options, { 'Back', function(playerArg) showTiers(playerArg, npc, math.floor((tierIndex - 1) / perPage) + 1) end })
 
-    say(player, 'Buy with !trustshop <number>.')
+    showMenu(player, {
+        title   = string.format('Level %d trusts, %s conquest points each', tier.level, formatNumber(tier.cost)),
+        options = options,
+    })
 end
 
-local function buy(player, index)
-    local entry = getEntries()[index]
-    if not entry then
-        say(player, string.format('There is no trust number %d. Type !trustshop to see the list.', index))
-        return
+showTiers = function(player, npc, page)
+    local level   = highestJobLevel(player)
+    local pages   = math.ceil(#tiers / perPage)
+    local first   = (page - 1) * perPage + 1
+    local options = {}
+
+    for tierIndex = first, math.min(#tiers, first + perPage - 1) do
+        local tier = tiers[tierIndex]
+        local owned = 0
+        for _, trust in ipairs(tier.resolved) do
+            if player:hasSpell(trust.spellId) then
+                owned = owned + 1
+            end
+        end
+
+        if level >= tier.level then
+            table.insert(options, {
+                string.format('Level %d (%d/%d owned)', tier.level, owned, #tier.resolved),
+                function(playerArg) showTier(playerArg, npc, tierIndex) end,
+            })
+        else
+            table.insert(options, {
+                string.format('Level %d (locked)', tier.level),
+                function(playerArg)
+                    say(playerArg, npc, string.format('Come back when one of your jobs reaches level %d.', tier.level))
+                end,
+            })
+        end
     end
 
-    if player:hasSpell(entry.spellId) then
-        say(player, string.format('You already know %s.', entry.name))
-        return
+    if page < pages then
+        table.insert(options, { 'More trusts', function(playerArg) showTiers(playerArg, npc, page + 1) end })
     end
 
-    local level = highestJobLevel(player)
-    if level < entry.level then
-        say(player, string.format('%s unlocks at level %d. Your highest job is level %d.', entry.name, entry.level, level))
-        return
-    end
-
-    local points = player:getCP()
-    if points < entry.cost then
-        say(player, string.format('%s costs %s conquest points. You have %s.', entry.name, formatNumber(entry.cost), formatNumber(points)))
-        return
-    end
-
-    -- First request: ask to confirm. Same number again within the time limit: buy.
-    local now = GetSystemTime()
-    if
-        player:getLocalVar('TrustShopPending') ~= entry.spellId or
-        now - player:getLocalVar('TrustShopPendingAt') > confirmSeconds
-    then
-        player:setLocalVar('TrustShopPending', entry.spellId)
-        player:setLocalVar('TrustShopPendingAt', now)
-        say(player, string.format('%s costs %s conquest points (you have %s). Type !trustshop %d again within %d seconds to buy.',
-            entry.name, formatNumber(entry.cost), formatNumber(points), index, confirmSeconds))
-        return
-    end
-
-    player:setLocalVar('TrustShopPending', 0)
-    player:delCP(entry.cost)
-    player:addSpell(entry.spellId, { silentLog = true })
-    say(player, string.format('You learned Trust: %s. %s conquest points left.', entry.name, formatNumber(player:getCP())))
-end
-
----@type TCommand
-local commandObj = {}
-
-commandObj.cmdprops =
-{
-    permission = 0,
-    parameters = 'i',
-}
-
-commandObj.onTrigger = function(player, index)
-    if xi.settings.main.ENABLE_TRUST_CASTING == 0 then
-        say(player, 'Trusts are turned off on this server.')
-        return
-    end
-
-    if index == nil then
-        listShop(player)
+    if page > 1 then
+        table.insert(options, { 'Previous', function(playerArg) showTiers(playerArg, npc, page - 1) end })
     else
-        buy(player, index)
+        table.insert(options, { 'Never mind', function(playerArg) end })
     end
+
+    showMenu(player, {
+        title   = string.format('Trusts for conquest points (you have %s)', formatNumber(player:getCP())),
+        options = options,
+    })
 end
 
-xi.module.registerCommand('trustshop', commandObj)
+local function onTrigger(player, npc)
+    resolveTiers()
 
+    if xi.settings.main.ENABLE_TRUST_CASTING == 0 then
+        say(player, npc, 'The Trust program is closed for now.')
+        return
+    end
+
+    say(player, npc, 'Adventurers who serve their nation can call on more allies. Conquest points buy a place on their roster.')
+    showTiers(player, npc, 1)
+end
+
+m:addOverride('xi.zones.Lower_Jeuno.Zone.onInitialize', function(zone)
+    super(zone)
+
+    zone:insertDynamicEntity({
+        objtype   = xi.objType.NPC,
+        name      = npcSettings.name,
+        look      = npcSettings.look,
+        x         = npcSettings.x,
+        y         = npcSettings.y,
+        z         = npcSettings.z,
+        rotation  = npcSettings.rotation,
+        widescan  = 1,
+        onTrigger = onTrigger,
+    })
+end)
