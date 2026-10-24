@@ -22,7 +22,7 @@ The Phoenix source is not copied into this repository. `bahamut install` clones 
                          │
       ┌──────────────────┼──────────────────────────┐
       │ 80/443           │ 54001 54002 54230 54231   │ files.bahamut-xi.com
-      ▼                  ▼ 51220                     ▼ (separate file server)
+      ▼                  ▼ 51220 51240               ▼ (separate file server)
    nginx ──► website   xi_connect xi_search          launcher patches, addons,
    (Next.js, :3000)    xi_map xi_world xi_profile    Pivot HD packs, Era-DATs
       │                  │
@@ -111,7 +111,9 @@ sudo bahamut web-update
 
 ## Era
 
-Bahamut XI matches the content of the Phoenix Era-DATs: the original game, Rise of the Zilart, Chains of Promathia and Treasures of Aht Urhgan, Level 75 cap unlocked through Maat's quests, and the later systems (Records of Eminence, Trusts, Field/Grounds manuals, home point teleports, Mog Garden, …) turned off. See `settings/main.lua`.
+Bahamut XI matches the content of the Phoenix Era-DATs: the original game, Rise of the Zilart, Chains of Promathia and Treasures of Aht Urhgan, Level 75 cap unlocked through Maat's quests, and the later systems (Records of Eminence, Field/Grounds manuals, home point teleports, Mog Garden, …) turned off. See `settings/main.lua`.
+
+Bahamut XI is meant to be played solo or in a small group: trusts are on, up to five at once and allowed everywhere (`modules/bahamut/lua/solo_trusts.lua`), and EXP and skill-up rates are raised (`settings/main.lua`, `settings/map.lua`).
 
 ## License
 
