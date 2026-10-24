@@ -50,8 +50,10 @@ xi.settings.main =
     ENABLE_MAGIAN_TRIALS  = 0,
     ENABLE_VOIDWALKER     = 0,
     ENABLE_MONSTROSITY    = 0,
-    ENABLE_TRUST_CASTING  = 0,
-    ENABLE_TRUST_QUESTS   = 0,
+    -- Trusts on: Bahamut XI is played solo or in small groups with trusts as party members.
+    -- Limits and the starter party are in modules/bahamut/lua/solo_trusts.lua.
+    ENABLE_TRUST_CASTING  = 1,
+    ENABLE_TRUST_QUESTS   = 1,
     HOMEPOINT_TELEPORT    = 0,
 
     -- Level 75 cap, unlocked through Maat's Limit Break quests as in era.

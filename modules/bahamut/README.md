@@ -12,7 +12,8 @@ Phoenix's own modules.
 | SQL | `sql/*.sql` | `sudo bahamut apply && sudo bahamut db-update && sudo bahamut restart game` |
 
 A Lua module overrides a function from Phoenix's `scripts/` and calls `super(...)` to keep the
-original behaviour. `lua/welcome.lua` is a small working example. Phoenix's own modules
+original behaviour. `lua/welcome.lua` is a small working example; `lua/solo_trusts.lua`
+(5 trusts, allowed everywhere, starter party on login) is a larger one with options at the top. Phoenix's own modules
 (`/opt/bahamut/server/modules/custom`, `phoenix`, `era`) are good references.
 
 Plain rates and switches (EXP rate, trusts, level cap...) are settings, not modules: change them
